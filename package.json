@@ -1,0 +1,38 @@
+{
+  "name": "distributed-render-farm",
+  "version": "1.0.0",
+  "description": "Distributed Render Farm for Video Transcoding and Exports",
+  "scripts": {
+    "setup": "bash scripts/setup_env.sh",
+    "build": "yarn build:worker && yarn build:orchestrator",
+    "build:worker": "cd worker && go build -o bin/render-worker ./cmd/worker",
+    "build:orchestrator": "cd orchestrator && mvn package -DskipTests",
+    "test": "yarn test:worker && yarn test:orchestrator",
+    "test:worker": "cd worker && go test -v ./pkg/video/...",
+    "test:orchestrator": "cd orchestrator && mvn test -Dtest=KeyframeProbeServiceTest",
+    "test:video": "bash scripts/generate_test_video.sh",
+    "test:manual-pipeline": "bash scripts/verify_manual_pipeline.sh",
+    "infra:start-docker": "colima status || colima start",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "dev:worker": "cd worker && go run ./cmd/worker/main.go --worker-id=worker-alpha",
+    "dev:orchestrator": "cd orchestrator && java -jar target/orchestrator-1.0.0-SNAPSHOT.jar",
+    "dev:pipeline-local": "cd worker && go run ./cmd/local_pipeline/main.go -source ../test_assets/sample_source.mp4 -concurrency 4 -output-dir ../test_assets/out_par",
+    "job:submit": "curl -s -X POST http://localhost:8080/api/v1/jobs -H 'Content-Type: application/json' -d '{\"sourcePath\": \"'\"$(pwd)\"'/test_assets/sample_source.mp4\", \"targetChunkSec\": 5.0, \"codec\": \"libx264\", \"preset\": \"veryfast\", \"bitrate\": \"3M\", \"outputFilename\": \"final_rendered_output.mp4\"}'",
+    "e2e": "bash scripts/test_phase3_e2e.sh"
+  },
+  "keywords": [
+    "distributed-systems",
+    "ffmpeg",
+    "video-transcoding",
+    "render-farm",
+    "kafka",
+    "redis",
+    "spring-boot",
+    "golang"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {}
+}

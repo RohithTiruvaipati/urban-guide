@@ -13,16 +13,35 @@ A distributed video transcoding and render orchestration farm designed to cut wa
 └── test_assets/            # Fixtures, sample clips, and probe diagnostics
 ```
 
-## Quick Start
+## Quick Start with Yarn
 
-### 1. Infrastructure
-Spin up local Redpanda (Kafka), Redis, PostgreSQL, and MinIO:
+### 1. Install & Setup Environment
 ```bash
-docker compose -f infra/docker-compose.yml up -d
+yarn setup
 ```
 
-### 2. Run Verification Harness
+### 2. Start Local Infrastructure (Redpanda, Redis, PostgreSQL, MinIO)
 ```bash
-./scripts/generate_test_video.sh
-./scripts/verify_manual_pipeline.sh
+yarn infra:up
+```
+
+### 3. Run Test Suite
+```bash
+yarn test
+```
+
+### 4. Run the Distributed Services
+In Terminal 1 (Control Plane API):
+```bash
+yarn dev:orchestrator
+```
+
+In Terminal 2 (Worker Node):
+```bash
+yarn dev:worker
+```
+
+In Terminal 3 (Submit Job):
+```bash
+yarn job:submit
 ```
