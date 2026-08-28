@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # --- Kafka-compatible message broker ---
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.8
+    container_name: render_farm_redpanda
+    command:
+      - redpanda
+      - start
+      - --smp
+      - '1'
+      - --memory
+      - '512M'
+      - --reserve-memory
+      - '0M'
+      - --overprovisioned
+      - --node-id
+      - '0'
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --pandaproxy-addr
+      - 0.0.0.0:8082
+      - --advertise-pandaproxy-addr
+      - localhost:8082
+    ports:
+      - "9092:9092"
+      - "9644:9644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.5.2
+    container_name: render_farm_redpanda_console
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+
+  # --- Fast State Store ---
+  redis:
+    image: redis:7.2-alpine
+    container_name: render_farm_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Durable Relational Database ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: render_farm_postgres
+    environment:
+      POSTGRES_DB: renderfarm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d renderfarm"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- S3-Compatible Shared Object Storage ---
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: render_farm_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Helper to create initial MinIO bucket
+  create-buckets:
+    image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb --ignore-existing myminio/render-farm;
+      /usr/bin/mc anonymous set public myminio/render-farm;
+      exit 0;
+      "
+
+volumes:
+  redpanda_data:
+  redis_data:
+  postgres_data:
+  minio_data:

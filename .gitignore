@@ -1,0 +1,35 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Build & Binaries
+bin/
+target/
+build/
+.gradle/
+*.exe
+*.o
+*.a
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Test video fixtures & intermediate render outputs
+test_assets/manual_verification/
+test_assets/out_seq/
+test_assets/out_par/
+test_assets/bench_seq/
+test_assets/bench_par/
+test_assets/output/
+test_assets/*.mp4
+test_assets/*.aac
+test_assets/*.txt
+test_assets/*.csv
+
+# Docker volume data
+infra/redpanda_data/
+infra/redis_data/
+infra/postgres_data/
+infra/minio_data/
