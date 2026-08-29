@@ -23,6 +23,7 @@ test_assets/out_par/
 test_assets/bench_seq/
 test_assets/bench_par/
 test_assets/output/
+test_assets/storage/
 test_assets/*.mp4
 test_assets/*.aac
 test_assets/*.txt
