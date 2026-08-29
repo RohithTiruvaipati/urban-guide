@@ -1,5 +1,6 @@
 package com.renderfarm.orchestrator.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.renderfarm.orchestrator.model.*;
 import org.slf4j.Logger;
@@ -105,15 +106,20 @@ public class JobOrchestratorService {
             String chunkFileName = String.format("chunk_%03d.mp4", chunk.getChunkIndex());
             String chunkOutputPath = new File(jobDir, chunkFileName).getAbsolutePath();
 
-            Map<String, Object> chunkInfo = new HashMap<>();
-            chunkInfo.put("index", chunk.getChunkIndex());
-            chunkInfo.put("status", "PENDING");
-            chunkInfo.put("startSec", chunk.getStartSec());
-            chunkInfo.put("endSec", chunk.getEndSec());
-            chunkInfo.put("duration", chunk.getDuration());
-            chunkInfo.put("outputPath", chunkOutputPath);
+            try {
+                Map<String, Object> chunkInfo = new HashMap<>();
+                chunkInfo.put("index", chunk.getChunkIndex());
+                chunkInfo.put("status", "PENDING");
+                chunkInfo.put("startSec", chunk.getStartSec());
+                chunkInfo.put("endSec", chunk.getEndSec());
+                chunkInfo.put("duration", chunk.getDuration());
+                chunkInfo.put("outputPath", chunkOutputPath);
 
-            redisTemplate.opsForHash().put(chunksKey, String.valueOf(chunk.getChunkIndex()), chunkInfo);
+                String chunkJson = objectMapper.writeValueAsString(chunkInfo);
+                redisTemplate.opsForHash().put(chunksKey, String.valueOf(chunk.getChunkIndex()), chunkJson);
+            } catch (Exception e) {
+                log.error("Failed to write initial chunk state for chunk {}: {}", chunk.getChunkIndex(), e.getMessage());
+            }
 
             ChunkJobMsg jobMsg = new ChunkJobMsg(
                     jobId,
@@ -154,7 +160,16 @@ public class JobOrchestratorService {
         Map<Object, Object> rawChunks = redisTemplate.opsForHash().entries(chunksKey);
         Map<String, Object> chunksMap = new HashMap<>();
         for (Map.Entry<Object, Object> entry : rawChunks.entrySet()) {
-            chunksMap.put(String.valueOf(entry.getKey()), entry.getValue());
+            try {
+                Object val = entry.getValue();
+                if (val instanceof String strVal && (strVal.startsWith("{") || strVal.startsWith("["))) {
+                    chunksMap.put(String.valueOf(entry.getKey()), objectMapper.readValue(strVal, Map.class));
+                } else {
+                    chunksMap.put(String.valueOf(entry.getKey()), val);
+                }
+            } catch (Exception e) {
+                chunksMap.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
         }
 
         JobStatus status = JobStatus.valueOf(String.valueOf(rawMeta.getOrDefault("status", "PENDING")));
@@ -206,8 +221,15 @@ public class JobOrchestratorService {
 
         for (int i = 0; i < totalChunks; i++) {
             Object chunkObj = rawChunks.get(String.valueOf(i));
-            if (chunkObj instanceof Map<?, ?> chunkMap) {
-                chunkFiles.add(String.valueOf(chunkMap.get("outputPath")));
+            if (chunkObj != null) {
+                try {
+                    JsonNode node = objectMapper.readTree(String.valueOf(chunkObj));
+                    if (node.has("outputPath")) {
+                        chunkFiles.add(node.get("outputPath").asText());
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to parse chunk object for chunk {}: {}", i, e.getMessage());
+                }
             }
         }
 
