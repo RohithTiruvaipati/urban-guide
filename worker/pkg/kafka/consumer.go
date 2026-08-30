@@ -136,16 +136,29 @@ func (c *JobConsumer) processChunk(job ChunkJobMsg) ChunkResultMsg {
 		}
 	}
 
+	dur := job.Duration
+	if dur <= 0 {
+		dur = job.EndSec - job.StartSec
+	}
+
+	crfVal := 0
+	if job.CRF != nil {
+		crfVal = *job.CRF
+	}
+
 	renderOpts := video.ChunkRenderOpts{
 		SourcePath:      job.SourcePath,
 		OutputPath:      job.OutputPath,
 		StartSec:        job.StartSec,
 		EndSec:          job.EndSec,
+		Duration:        dur,
 		Codec:           job.Codec,
 		Preset:          job.Preset,
 		Bitrate:         job.Bitrate,
+		CRF:             crfVal,
 		VideoFilter:     job.VideoFilter,
 		AvoidNegativeTs: job.AvoidNegativeTs,
+		IncludeAudio:    job.IncludeAudio,
 	}
 
 	if err := video.RenderChunk(renderOpts); err != nil {

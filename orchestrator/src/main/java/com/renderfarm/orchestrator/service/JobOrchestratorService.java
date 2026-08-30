@@ -23,6 +23,7 @@ public class JobOrchestratorService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final KeyframeProbeService probeService;
+    private final XmlTimelineParserService xmlParserService;
     private final StitcherService stitcherService;
     private final ObjectMapper objectMapper;
 
@@ -38,11 +39,13 @@ public class JobOrchestratorService {
     public JobOrchestratorService(RedisTemplate<String, Object> redisTemplate,
                                   KafkaTemplate<String, Object> kafkaTemplate,
                                   KeyframeProbeService probeService,
+                                  XmlTimelineParserService xmlParserService,
                                   StitcherService stitcherService,
                                   ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
         this.kafkaTemplate = kafkaTemplate;
         this.probeService = probeService;
+        this.xmlParserService = xmlParserService;
         this.stitcherService = stitcherService;
         this.objectMapper = objectMapper;
     }
@@ -54,8 +57,9 @@ public class JobOrchestratorService {
                 : defaultChunkSec;
 
         String codec = (request.getCodec() != null && !request.getCodec().isBlank()) ? request.getCodec() : "libx264";
-        String preset = (request.getPreset() != null && !request.getPreset().isBlank()) ? request.getPreset() : "veryfast";
-        String bitrate = (request.getBitrate() != null && !request.getBitrate().isBlank()) ? request.getBitrate() : "3M";
+        String preset = (request.getPreset() != null && !request.getPreset().isBlank()) ? request.getPreset() : "medium";
+        Integer crf = request.getCrf();
+        String bitrate = (request.getBitrate() != null && !request.getBitrate().isBlank()) ? request.getBitrate() : (crf == null ? "15M" : null);
         String videoFilter = (request.getVideoFilter() != null) ? request.getVideoFilter() : "hue=s=1.1,eq=contrast=1.05";
 
         File jobDir = new File(storageDir, jobId);
@@ -65,9 +69,88 @@ public class JobOrchestratorService {
                 ? request.getOutputFilename()
                 : "rendered_output.mp4";
         String finalOutputPath = new File(jobDir, finalFilename).getAbsolutePath();
-        String audioPath = new File(jobDir, "master_audio.aac").getAbsolutePath();
 
-        log.info("🚀 Submitting render job [{}] for source: {}", jobId, request.getSourcePath());
+        boolean isXmlTimeline = request.getSourcePath() != null && request.getSourcePath().toLowerCase().endsWith(".xml");
+        Instant now = Instant.now();
+        String jobKey = "job:" + jobId;
+        String chunksKey = "job:" + jobId + ":chunks";
+
+        if (isXmlTimeline) {
+            log.info("🎬 Submitting XML Timeline render job [{}] from project: {}", jobId, request.getSourcePath());
+            List<XmlTimelineClip> xmlClips = xmlParserService.parseXmlTimeline(request.getSourcePath());
+            if (xmlClips.isEmpty()) {
+                throw new IllegalArgumentException("No valid video clips found in XML timeline: " + request.getSourcePath());
+            }
+
+            log.info("📦 XML Timeline [{}] partitioned into {} parallel clip cuts", jobId, xmlClips.size());
+
+            // Initialize Redis state (no separate master audio needed since audio is rendered per clip)
+            Map<String, Object> jobMeta = new HashMap<>();
+            jobMeta.put("id", jobId);
+            jobMeta.put("status", JobStatus.RUNNING.name());
+            jobMeta.put("totalChunks", String.valueOf(xmlClips.size()));
+            jobMeta.put("completedChunks", "0");
+            jobMeta.put("sourcePath", request.getSourcePath());
+            jobMeta.put("audioPath", "");
+            jobMeta.put("finalOutputPath", finalOutputPath);
+            jobMeta.put("codec", codec);
+            jobMeta.put("preset", preset);
+            if (bitrate != null) jobMeta.put("bitrate", bitrate);
+            if (crf != null) jobMeta.put("crf", String.valueOf(crf));
+            jobMeta.put("createdAt", now.toString());
+            jobMeta.put("updatedAt", now.toString());
+
+            redisTemplate.opsForHash().putAll(jobKey, jobMeta);
+
+            // Publish each XML timeline cut as an independent parallel chunk
+            for (XmlTimelineClip clip : xmlClips) {
+                String chunkFileName = String.format("chunk_%03d.mp4", clip.getClipIndex());
+                String chunkOutputPath = new File(jobDir, chunkFileName).getAbsolutePath();
+
+                try {
+                    Map<String, Object> chunkInfo = new HashMap<>();
+                    chunkInfo.put("index", clip.getClipIndex());
+                    chunkInfo.put("status", "PENDING");
+                    chunkInfo.put("name", clip.getName());
+                    chunkInfo.put("sourcePath", clip.getSourceFilePath());
+                    chunkInfo.put("startSec", clip.getSourceInSec());
+                    chunkInfo.put("endSec", clip.getSourceOutSec());
+                    chunkInfo.put("duration", clip.getDurationSec());
+                    chunkInfo.put("outputPath", chunkOutputPath);
+
+                    String chunkJson = objectMapper.writeValueAsString(chunkInfo);
+                    redisTemplate.opsForHash().put(chunksKey, String.valueOf(clip.getClipIndex()), chunkJson);
+                } catch (Exception e) {
+                    log.error("Failed to write initial chunk state for clip {}: {}", clip.getClipIndex(), e.getMessage());
+                }
+
+                ChunkJobMsg jobMsg = new ChunkJobMsg(
+                        jobId,
+                        clip.getClipIndex(),
+                        xmlClips.size(),
+                        clip.getSourceFilePath(),
+                        chunkOutputPath,
+                        clip.getSourceInSec(),
+                        clip.getSourceOutSec(),
+                        clip.getDurationSec(),
+                        codec,
+                        preset,
+                        bitrate,
+                        crf,
+                        videoFilter,
+                        true,
+                        true // includeAudio for XML cuts
+                );
+
+                kafkaTemplate.send(jobsTopic, jobId + "-" + clip.getClipIndex(), jobMsg);
+            }
+
+            log.info("📤 Dispatched {} XML clip cuts to Kafka topic '{}'", xmlClips.size(), jobsTopic);
+            return getJobStatus(jobId);
+        }
+
+        String audioPath = new File(jobDir, "master_audio.aac").getAbsolutePath();
+        log.info("🚀 Submitting video transcode job [{}] for source: {}", jobId, request.getSourcePath());
 
         // Probe duration & keyframes
         double duration = probeService.probeDuration(request.getSourcePath());
@@ -80,10 +163,6 @@ public class JobOrchestratorService {
         // Extract master audio track once
         stitcherService.extractAudio(request.getSourcePath(), audioPath);
 
-        Instant now = Instant.now();
-        String jobKey = "job:" + jobId;
-        String chunksKey = "job:" + jobId + ":chunks";
-
         // Initialize Redis state
         Map<String, Object> jobMeta = new HashMap<>();
         jobMeta.put("id", jobId);
@@ -95,7 +174,12 @@ public class JobOrchestratorService {
         jobMeta.put("finalOutputPath", finalOutputPath);
         jobMeta.put("codec", codec);
         jobMeta.put("preset", preset);
-        jobMeta.put("bitrate", bitrate);
+        if (bitrate != null) {
+            jobMeta.put("bitrate", bitrate);
+        }
+        if (crf != null) {
+            jobMeta.put("crf", String.valueOf(crf));
+        }
         jobMeta.put("createdAt", now.toString());
         jobMeta.put("updatedAt", now.toString());
 
@@ -129,11 +213,14 @@ public class JobOrchestratorService {
                     chunkOutputPath,
                     chunk.getStartSec(),
                     chunk.getEndSec(),
+                    chunk.getDuration(),
                     codec,
                     preset,
                     bitrate,
+                    crf,
                     videoFilter,
-                    true
+                    true,
+                    false // includeAudio is false because master audio is extracted once
             );
 
             kafkaTemplate.send(jobsTopic, jobId + "-" + chunk.getChunkIndex(), jobMsg);

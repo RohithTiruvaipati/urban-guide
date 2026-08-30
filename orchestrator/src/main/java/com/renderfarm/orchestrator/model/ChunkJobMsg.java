@@ -8,17 +8,20 @@ public class ChunkJobMsg {
     private String outputPath;
     private double startSec;
     private double endSec;
+    private double duration;
     private String codec;
     private String preset;
     private String bitrate;
+    private Integer crf;
     private String videoFilter;
     private boolean avoidNegativeTs;
+    private boolean includeAudio;
 
     public ChunkJobMsg() {}
 
     public ChunkJobMsg(String jobId, int chunkIndex, int totalChunks, String sourcePath, String outputPath,
-                       double startSec, double endSec, String codec, String preset, String bitrate,
-                       String videoFilter, boolean avoidNegativeTs) {
+                       double startSec, double endSec, double duration, String codec, String preset, String bitrate,
+                       Integer crf, String videoFilter, boolean avoidNegativeTs, boolean includeAudio) {
         this.jobId = jobId;
         this.chunkIndex = chunkIndex;
         this.totalChunks = totalChunks;
@@ -26,11 +29,14 @@ public class ChunkJobMsg {
         this.outputPath = outputPath;
         this.startSec = startSec;
         this.endSec = endSec;
+        this.duration = duration;
         this.codec = codec;
         this.preset = preset;
         this.bitrate = bitrate;
+        this.crf = crf;
         this.videoFilter = videoFilter;
         this.avoidNegativeTs = avoidNegativeTs;
+        this.includeAudio = includeAudio;
     }
 
     public String getJobId() { return jobId; }
@@ -54,6 +60,9 @@ public class ChunkJobMsg {
     public double getEndSec() { return endSec; }
     public void setEndSec(double endSec) { this.endSec = endSec; }
 
+    public double getDuration() { return duration; }
+    public void setDuration(double duration) { this.duration = duration; }
+
     public String getCodec() { return codec; }
     public void setCodec(String codec) { this.codec = codec; }
 
@@ -63,9 +72,15 @@ public class ChunkJobMsg {
     public String getBitrate() { return bitrate; }
     public void setBitrate(String bitrate) { this.bitrate = bitrate; }
 
+    public Integer getCrf() { return crf; }
+    public void setCrf(Integer crf) { this.crf = crf; }
+
     public String getVideoFilter() { return videoFilter; }
     public void setVideoFilter(String videoFilter) { this.videoFilter = videoFilter; }
 
     public boolean isAvoidNegativeTs() { return avoidNegativeTs; }
     public void setAvoidNegativeTs(boolean avoidNegativeTs) { this.avoidNegativeTs = avoidNegativeTs; }
+
+    public boolean isIncludeAudio() { return includeAudio; }
+    public void setIncludeAudio(boolean includeAudio) { this.includeAudio = includeAudio; }
 }
