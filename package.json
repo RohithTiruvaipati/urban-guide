@@ -21,6 +21,7 @@
     "dev:pipeline-local": "cd worker && go run ./cmd/local_pipeline/main.go -source ../test_assets/sample_source.mp4 -concurrency 4 -output-dir ../test_assets/out_par",
     "job:submit": "curl -s -X POST http://localhost:8080/api/v1/jobs -H 'Content-Type: application/json' -d '{\"sourcePath\": \"'\"$(pwd)\"'/test_assets/sample_source.mp4\", \"targetChunkSec\": 5.0, \"codec\": \"libx264\", \"preset\": \"veryfast\", \"bitrate\": \"3M\", \"outputFilename\": \"final_rendered_output.mp4\"}'",
     "demo": "bash scripts/demo.sh",
+    "render:xml": "python3 scripts/xml_render_farm.py",
     "e2e": "bash scripts/test_phase3_e2e.sh"
   },
   "keywords": [
