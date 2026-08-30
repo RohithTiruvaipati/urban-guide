@@ -70,13 +70,12 @@ public class StitcherService {
             if (hasAudio) {
                 command.add("-i");
                 command.add(audioPath);
-            }
-
-            command.add("-c:v");
-            command.add("copy");
-
-            if (hasAudio) {
+                command.add("-c:v");
+                command.add("copy");
                 command.add("-c:a");
+                command.add("copy");
+            } else {
+                command.add("-c");
                 command.add("copy");
             }
 

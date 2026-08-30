@@ -36,24 +36,24 @@ echo " Chunk 2: [10.000000 -> 20.000000]"
 echo " Chunk 3: [20.000000 -> 30.000000]"
 echo "============================================================"
 
-# Transcode settings to simulate actual rendering work (color effect + preset)
+# Transcode settings to simulate actual rendering work (color effect + high quality CRF 18 + closed GOP)
 # Notice: -avoid_negative_ts make_zero ensures presentation timestamps start at 0 in each chunk container
-echo "🎬 Rendering Chunk 1 (0.0s - 10.0s)..."
-ffmpeg -y -ss 0.000000 -to 10.000000 -i "${SOURCE_FILE}" \
+echo "🎬 Rendering Chunk 1 (0.0s - 10.0s, dur 10.0s)..."
+ffmpeg -y -ss 0.000000 -i "${SOURCE_FILE}" -t 10.000000 \
   -vf "hue=s=1.2" \
-  -c:v libx264 -preset veryfast -b:v 3M \
+  -c:v libx264 -preset medium -crf 18 -flags +cgop -pix_fmt yuv420p \
   -an -avoid_negative_ts make_zero "${WORK_DIR}/chunk_0.mp4"
 
-echo "🎬 Rendering Chunk 2 (10.0s - 20.0s)..."
-ffmpeg -y -ss 10.000000 -to 20.000000 -i "${SOURCE_FILE}" \
+echo "🎬 Rendering Chunk 2 (10.0s - 20.0s, dur 10.0s)..."
+ffmpeg -y -ss 10.000000 -i "${SOURCE_FILE}" -t 10.000000 \
   -vf "hue=s=1.2" \
-  -c:v libx264 -preset veryfast -b:v 3M \
+  -c:v libx264 -preset medium -crf 18 -flags +cgop -pix_fmt yuv420p \
   -an -avoid_negative_ts make_zero "${WORK_DIR}/chunk_1.mp4"
 
-echo "🎬 Rendering Chunk 3 (20.0s - 30.0s)..."
-ffmpeg -y -ss 20.000000 -to 30.000000 -i "${SOURCE_FILE}" \
+echo "🎬 Rendering Chunk 3 (20.0s - 30.0s, dur 10.0s)..."
+ffmpeg -y -ss 20.000000 -i "${SOURCE_FILE}" -t 10.000000 \
   -vf "hue=s=1.2" \
-  -c:v libx264 -preset veryfast -b:v 3M \
+  -c:v libx264 -preset medium -crf 18 -flags +cgop -pix_fmt yuv420p \
   -an -avoid_negative_ts make_zero "${WORK_DIR}/chunk_2.mp4"
 
 echo ""

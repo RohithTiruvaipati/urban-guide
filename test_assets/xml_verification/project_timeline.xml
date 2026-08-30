@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+  <sequence id="sequence-1">
+    <name>Premiere Distributed Edit</name>
+    <duration>180</duration>
+    <rate>
+      <timebase>30</timebase>
+      <ntsc>FALSE</ntsc>
+    </rate>
+    <media>
+      <video>
+        <track>
+          <clipitem id="clipitem-1">
+            <name>scene_a.mp4</name>
+            <duration>150</duration>
+            <rate><timebase>30</timebase></rate>
+            <start>0</start>
+            <end>90</end>
+            <in>30</in>
+            <out>120</out>
+            <file id="file-1">
+              <name>scene_a.mp4</name>
+              <pathurl>file://localhost/Users/rohithtiruvaipati1/.gemini/antigravity/worktrees/urban-guide/premiere_export_plugin_transition/test_assets/xml_verification/scene_a.mp4</pathurl>
+            </file>
+          </clipitem>
+          <clipitem id="clipitem-2">
+            <name>scene_b.mp4</name>
+            <duration>150</duration>
+            <rate><timebase>30</timebase></rate>
+            <start>90</start>
+            <end>180</end>
+            <in>60</in>
+            <out>150</out>
+            <file id="file-2">
+              <name>scene_b.mp4</name>
+              <pathurl>file://localhost/Users/rohithtiruvaipati1/.gemini/antigravity/worktrees/urban-guide/premiere_export_plugin_transition/test_assets/xml_verification/scene_b.mp4</pathurl>
+            </file>
+          </clipitem>
+        </track>
+      </video>
+    </media>
+  </sequence>
+</xmeml>

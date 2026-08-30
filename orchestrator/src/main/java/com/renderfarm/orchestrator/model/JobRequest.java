@@ -6,17 +6,19 @@ public class JobRequest {
     private String codec;
     private String preset;
     private String bitrate;
+    private Integer crf;
     private String videoFilter;
     private String outputFilename;
 
     public JobRequest() {}
 
-    public JobRequest(String sourcePath, Double targetChunkSec, String codec, String preset, String bitrate, String videoFilter, String outputFilename) {
+    public JobRequest(String sourcePath, Double targetChunkSec, String codec, String preset, String bitrate, Integer crf, String videoFilter, String outputFilename) {
         this.sourcePath = sourcePath;
         this.targetChunkSec = targetChunkSec;
         this.codec = codec;
         this.preset = preset;
         this.bitrate = bitrate;
+        this.crf = crf;
         this.videoFilter = videoFilter;
         this.outputFilename = outputFilename;
     }
@@ -35,6 +37,9 @@ public class JobRequest {
 
     public String getBitrate() { return bitrate; }
     public void setBitrate(String bitrate) { this.bitrate = bitrate; }
+
+    public Integer getCrf() { return crf; }
+    public void setCrf(Integer crf) { this.crf = crf; }
 
     public String getVideoFilter() { return videoFilter; }
     public void setVideoFilter(String videoFilter) { this.videoFilter = videoFilter; }

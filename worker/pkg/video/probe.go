@@ -229,35 +229,55 @@ func CalculateGOPChunks(totalDuration float64, keyframes []Keyframe, targetChunk
 	return chunks
 }
 
-// RenderChunk executes ffmpeg to encode a specific time segment with accurate PTS handling.
+// RenderChunk executes ffmpeg to encode a specific time segment with accurate PTS handling and high visual quality.
 func RenderChunk(opts ChunkRenderOpts) error {
 	if opts.Codec == "" {
 		opts.Codec = "libx264"
 	}
 	if opts.Preset == "" {
-		opts.Preset = "veryfast"
-	}
-	if opts.Bitrate == "" {
-		opts.Bitrate = "3M"
+		opts.Preset = "medium"
 	}
 
+	duration := opts.Duration
+	if duration <= 0 {
+		duration = opts.EndSec - opts.StartSec
+	}
+
+	// -ss before -i seeks directly to the snapped keyframe
+	// -t guarantees exact frame/time duration without -to timestamp ambiguities
 	args := []string{
 		"-y",
 		"-ss", fmt.Sprintf("%.6f", opts.StartSec),
-		"-to", fmt.Sprintf("%.6f", opts.EndSec),
 		"-i", opts.SourcePath,
+		"-t", fmt.Sprintf("%.6f", duration),
 	}
 
 	if opts.VideoFilter != "" {
 		args = append(args, "-vf", opts.VideoFilter)
 	}
 
+	args = append(args, "-c:v", opts.Codec, "-preset", opts.Preset)
+
+	if opts.CRF > 0 {
+		args = append(args, "-crf", strconv.Itoa(opts.CRF))
+	} else {
+		if opts.Bitrate == "" {
+			opts.Bitrate = "15M"
+		}
+		args = append(args, "-b:v", opts.Bitrate, "-maxrate", "25M", "-bufsize", "30M")
+	}
+
+	// Enforce Closed GOP so chunk boundary frames are 100% self-contained during stream concatenation
 	args = append(args,
-		"-c:v", opts.Codec,
-		"-preset", opts.Preset,
-		"-b:v", opts.Bitrate,
-		"-an", // audio extracted separately
+		"-flags", "+cgop",
+		"-pix_fmt", "yuv420p",
 	)
+
+	if opts.IncludeAudio {
+		args = append(args, "-c:a", "aac", "-b:a", "192k")
+	} else {
+		args = append(args, "-an") // audio extracted separately
+	}
 
 	if opts.AvoidNegativeTs {
 		args = append(args, "-avoid_negative_ts", "make_zero")
@@ -270,8 +290,8 @@ func RenderChunk(opts ChunkRenderOpts) error {
 	cmd.Stderr = &errOut
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ffmpeg chunk render failed (range %.2f-%.2f): %w, details: %s",
-			opts.StartSec, opts.EndSec, err, errOut.String())
+		return fmt.Errorf("ffmpeg chunk render failed (range %.2f-%.2f, dur %.2f): %w, details: %s",
+			opts.StartSec, opts.EndSec, duration, err, errOut.String())
 	}
 
 	return nil
