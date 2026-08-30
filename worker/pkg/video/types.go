@@ -33,11 +33,14 @@ type ChunkRenderOpts struct {
 	OutputPath      string
 	StartSec        float64
 	EndSec          float64
-	Codec           string // e.g. "libx264"
-	Preset          string // e.g. "veryfast", "medium"
-	Bitrate         string // e.g. "3M"
-	VideoFilter     string // e.g. "hue=s=1.2,eq=contrast=1.1"
+	Duration        float64 // Exact chunk duration (EndSec - StartSec)
+	Codec           string  // e.g. "libx264"
+	Preset          string  // e.g. "medium", "slow", "veryfast"
+	Bitrate         string  // e.g. "15M"
+	CRF             int     // Constant Rate Factor (e.g. 18 for visually lossless). If > 0, takes precedence over Bitrate.
+	VideoFilter     string  // e.g. "hue=s=1.2,eq=contrast=1.1"
 	AvoidNegativeTs bool
+	IncludeAudio    bool // If true, render audio alongside video (e.g. for XML timeline cuts)
 }
 
 // AccuracyReport summarizes frame count and duration audit between source and output.

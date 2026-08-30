@@ -1,0 +1,2 @@
+file '/Users/rohithtiruvaipati1/.gemini/antigravity/worktrees/urban-guide/premiere_export_plugin_transition/test_assets/xml_verification/chunk_000.mp4'
+file '/Users/rohithtiruvaipati1/.gemini/antigravity/worktrees/urban-guide/premiere_export_plugin_transition/test_assets/xml_verification/chunk_001.mp4'
